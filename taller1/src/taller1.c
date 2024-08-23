@@ -14,8 +14,6 @@ int j;
 int k;
 pid_t childArr[];
 
-srand(time(NULL));
-
 void handler_ruleta(int sig) {
   int random = rand() % n + 1;
   printf("Recibi el número %d\n", random);
@@ -55,6 +53,8 @@ int main(int argc, char *argv[]) {
     return 1;
   }
   
+  
+  
   pid_t currentPid = 1;
 
   // Creamos los n hijos, sabiendo que estamos en el proceso padre
@@ -64,7 +64,8 @@ int main(int argc, char *argv[]) {
       sleep(1);
       childArr[i] = currentPid;
       printf("Hijo " "%d" " creado con pid " "%d" "\n", i+1, currentPid);
-    } else { 
+    } else {
+      srand(time(NULL));
       signal(SIGTERM, handler_ruleta);
       while (1) {}
       return 0;
