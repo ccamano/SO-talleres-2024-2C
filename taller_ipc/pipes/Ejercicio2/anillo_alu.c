@@ -8,25 +8,58 @@
 
 int generate_random_number() {return (rand() % 50);}
 
-void ejecutar_hijo_inicial(int c, int pipe[2]) {
-  int secreto = generate_random_number();
-  while(true)
-    if (c > secreto) {
-      // TODO: enviar al padre el c
-      exit(EXIT_SUCCESS);
+void ejecutar_hijo_inicial(int i, int n, int pipe_fd[][2], 
+                           int pipe_enviar_c[2], int pipe_recibir_c[2]) {
+  
+  close(pipe_enviar_c[PIPE_WRITE]);
+  close(pipe_recibir_c[PIPE_READ]);
+  
+  for (int j = 0; j < n; j++) {
+    if (j == ((i - 1) % n)) {
+      close(pipe_fd[j][PIPE_WRITE]);
+    } else if (i == j) {   
+      close(pipe_fd[j][PIPE_READ]);
     } else {
-      c++;
-      write(pipe[PIPE_WRITE], &c, sizeof(c));
-      read(pipe[PIPE_READ, &c, sizeof(c)]);
-    }    
+      close(pipe_fd[j][PIPE_READ]);
+      close(pipe_fd[j][PIPE_WRITE]);
+    }
   }
+  
+  int c;
+  read(pipe_enviar_c[PIPE_READ], &c, sizeof(c));
+  int secreto = generate_random_number();
+  while(c > secreto) {
+    c++;
+    write(pipe_fd[(i-1) % n][PIPE_WRITE], &c, sizeof(c));
+    read(pipe_fd[(i-1) % n][PIPE_READ], &c, sizeof(c));
+  }
+  write(pipe_recibir_c[PIPE_WRITE], &c, sizeof(c));
+  exit(EXIT_SUCCESS);
 }
 
-void mensajear(int c, int pipe[2]) {
-  int valor;
-  read(pipe[PIPE_READ], &valor, sizeof(valor));
-  valor++;
-  write(pipe[PIPE_WRITE], &valor, sizeof(valor));
+void ejecutar_hijo_i(int i, int n, int pipe_fd[][2], 
+                     int pipe_enviar_c[2], int pipe_recibir_c[2]) {
+  
+  close(pipe_enviar_c[PIPE_WRITE]);
+  close(pipe_enviar_c[PIPE_READ]);
+  close(pipe_recibir_c[PIPE_WRITE]);
+  close(pipe_recibir_c[PIPE_READ]);
+
+  for (int j = 0; j < n; j++) {
+    if (j == ((i - 1) % n)) {
+      close(pipe_fd[j][PIPE_WRITE]);
+    } else if (i == j) {   
+      close(pipe_fd[j][PIPE_READ]);
+    } else {
+      close(pipe_fd[j][PIPE_READ]);
+      close(pipe_fd[j][PIPE_WRITE]);
+    }
+  }
+  
+  int c;
+  read(pipe_fd[(i - 1) % n][PIPE_READ], &c, sizeof(c));
+  c++;
+  write(pipe_fd[i][PIPE_WRITE], &c, sizeof(c));
 }
 
 int main(int argc, char **argv) {	
@@ -44,29 +77,28 @@ int main(int argc, char **argv) {
   int pipe_enviar_c[2];
   pipe(pipe_enviar_c);
   
-  int pipe_recibir_c_actualizado[2];
-  pipe(pipe_recibir_c_acutalizado);
+  int pipe_recibir_c[2];
+  pipe(pipe_recibir_c);
   
-  int pipes_entre_hijos[n][2];
+  int pipes[n][2];
   for (int i = 0; i < n; i++) { 
     pipe(pipes[i]);
   }
   
-  pid_t pid;
   for (int i = 0; i < n; i++) {
     pid = fork();
     if (pid == 0) {
-      if (i == start) {
-        ejecutar_hijo_inicial(n, pipes)
-        write(pipe_enviar_c[PIPE_WRITE], &c, sizeof(c));
+      if (i+1 == start) {
+        ejecutar_hijo_inicial(i, n, pipes, pipe_enviar_c, pipe_recibir_c);
+        write(pipe_enviar_c[PIPE_WRITE], &buffer, sizeof(buffer));
       } else {
-        ejecutar_hijo(pipes);
+        ejecutar_hijo_i(i, n, pipes, pipe_enviar_c, pipe_recibir_c);
       }
     }
   }
   
   int c_actualizado;
-  read(pipe_recibir_c_actualizado[PIPE_READ, &c_actualizado, sizeof(c_acutalizado)]);
+  read(pipe_recibir_c[PIPE_READ], &c_actualizado, sizeof(c_actualizado));
   printf("Resultado total: %d\n", c_actualizado);
   
 }
