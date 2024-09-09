@@ -15,7 +15,7 @@ void ejecutar_hijo_inicial(int i, int n, int pipe_fd[][2],
   close(pipe_recibir_c[PIPE_READ]);
   
   for (int j = 0; j < n; j++) {
-    if (j == ((i - 1) % n)) {
+    if (j == ((n + i - 1) % n)) {
       close(pipe_fd[j][PIPE_WRITE]);
     } else if (i == j) {   
       close(pipe_fd[j][PIPE_READ]);
@@ -28,11 +28,16 @@ void ejecutar_hijo_inicial(int i, int n, int pipe_fd[][2],
   int c;
   read(pipe_enviar_c[PIPE_READ], &c, sizeof(c));
   int secreto = generate_random_number();
-  while(c > secreto) {
+  secreto += c;
+  printf("número secreto %d\n", secreto);
+  
+  while(c < secreto) {
     c++;
-    write(pipe_fd[(i-1) % n][PIPE_WRITE], &c, sizeof(c));
-    read(pipe_fd[(i-1) % n][PIPE_READ], &c, sizeof(c));
+    write(pipe_fd[i][PIPE_WRITE], &c, sizeof(c));
+    read(pipe_fd[(n + i - 1) % n][PIPE_READ], &c, sizeof(c));
+    printf("recibi el c con valor: %d en hijo: %d\n", c, i);
   }
+  
   write(pipe_recibir_c[PIPE_WRITE], &c, sizeof(c));
   exit(EXIT_SUCCESS);
 }
@@ -46,7 +51,7 @@ void ejecutar_hijo_i(int i, int n, int pipe_fd[][2],
   close(pipe_recibir_c[PIPE_READ]);
 
   for (int j = 0; j < n; j++) {
-    if (j == ((i - 1) % n)) {
+    if (j == ((n + i - 1) % n)) {
       close(pipe_fd[j][PIPE_WRITE]);
     } else if (i == j) {   
       close(pipe_fd[j][PIPE_READ]);
@@ -57,9 +62,12 @@ void ejecutar_hijo_i(int i, int n, int pipe_fd[][2],
   }
   
   int c;
-  read(pipe_fd[(i - 1) % n][PIPE_READ], &c, sizeof(c));
-  c++;
-  write(pipe_fd[i][PIPE_WRITE], &c, sizeof(c));
+  while (1) {
+    read(pipe_fd[(n + i - 1) % n][PIPE_READ], &c, sizeof(c));
+    printf("recibi el c con valor: %d en hijo: %d\n", c, i);
+    c++;
+    write(pipe_fd[i][PIPE_WRITE], &c, sizeof(c));
+  }
 }
 
 int main(int argc, char **argv) {	
@@ -85,20 +93,30 @@ int main(int argc, char **argv) {
     pipe(pipes[i]);
   }
   
+  pid_t *children = malloc(sizeof(*children) * n);
+  
   for (int i = 0; i < n; i++) {
     pid = fork();
     if (pid == 0) {
       if (i+1 == start) {
         ejecutar_hijo_inicial(i, n, pipes, pipe_enviar_c, pipe_recibir_c);
-        write(pipe_enviar_c[PIPE_WRITE], &buffer, sizeof(buffer));
       } else {
         ejecutar_hijo_i(i, n, pipes, pipe_enviar_c, pipe_recibir_c);
       }
+    } else {
+      children[i] = pid;
     }
   }
   
+  write(pipe_enviar_c[PIPE_WRITE], &buffer, sizeof(buffer));  
   int c_actualizado;
-  read(pipe_recibir_c[PIPE_READ], &c_actualizado, sizeof(c_actualizado));
+  read(pipe_recibir_c[PIPE_READ], &c_actualizado, sizeof(c_actualizado));  
+  
+  for (int i = 0; i < n; i++) {
+    if (i+1 != start) kill(children[i], SIGKILL);  
+  }
+  
   printf("Resultado total: %d\n", c_actualizado);
   
+  return 0;
 }
