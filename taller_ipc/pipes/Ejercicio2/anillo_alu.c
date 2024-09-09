@@ -8,97 +8,128 @@
 
 int generate_random_number() {return (rand() % 50);}
 
-void ejecutar_hijo_inicial(int i, int n, int pipe_fd[][2], 
-                           int pipe_enviar_c[2], int pipe_recibir_c[2]) {
+void ejecutar_hijo_inicial(int i, int n, int pipes_hijos[][2], 
+                           int pipes_padre[2]) {
+
+
+printf("Soy proceso inicial: %i y voy a cerrar pipes.\n", i);
   
-  close(pipe_enviar_c[PIPE_WRITE]);
-  close(pipe_recibir_c[PIPE_READ]);
-  
+close(pipes_padre[PIPE_READ]);
+close(pipes_padre[PIPE_WRITE]);
+
   for (int j = 0; j < n; j++) {
-    if (j == ((i - 1) % n)) {
-      close(pipe_fd[j][PIPE_WRITE]);
-    } else if (i == j) {   
-      close(pipe_fd[j][PIPE_READ]);
-    } else {
-      close(pipe_fd[j][PIPE_READ]);
-      close(pipe_fd[j][PIPE_WRITE]);
-    }
+    if( j == (i+1) % n){
+      close(pipes_hijos[j][PIPE_READ]);
+    } else if (j == i){
+      close(pipes_hijos[j][PIPE_WRITE]);
+    }else {
+      close(pipes_hijos[j][PIPE_READ]);
+      close(pipes_hijos[j][PIPE_WRITE]);
+    }  
   }
   
-  int c;
-  read(pipe_enviar_c[PIPE_READ], &c, sizeof(c));
+
+  int c = 0;
+  read(pipes_hijos[i][PIPE_READ], &c, sizeof(c));
+  printf("En proceso inicial el padre escribio c: %i\n", c);
+  
+  // TODO: si c > secreto, ver como seguir la ronda
+  // TODO: donde guardar secreto? guardarlo siquiera?
   int secreto = generate_random_number();
-  while(c > secreto) {
-    c++;
-    write(pipe_fd[(i-1) % n][PIPE_WRITE], &c, sizeof(c));
-    read(pipe_fd[(i-1) % n][PIPE_READ], &c, sizeof(c));
-  }
-  write(pipe_recibir_c[PIPE_WRITE], &c, sizeof(c));
+  c++;
+  printf("En proceso inicial el secreto es: %i y le escribo c: %i al proceso: %i \n\n", secreto, c, (i+1) % n);
+
+  write(pipes_hijos[(i + 1 ) % n][PIPE_WRITE], &c, sizeof(c));
+  read(pipes_hijos[(i-1) % n][PIPE_READ], &c, sizeof(c));
+ 
   exit(EXIT_SUCCESS);
 }
 
-void ejecutar_hijo_i(int i, int n, int pipe_fd[][2], 
-                     int pipe_enviar_c[2], int pipe_recibir_c[2]) {
+void ejecutar_hijo_i(int i, int n, int pipes_hijos[][2], 
+                     int pipe_padre[2]) {
+
+  printf("Soy proceso: %i y voy a cerrar pipes.\n", i);
+  close(pipe_padre[PIPE_READ]);
+  close(pipe_padre[PIPE_WRITE]);
   
-  close(pipe_enviar_c[PIPE_WRITE]);
-  close(pipe_enviar_c[PIPE_READ]);
-  close(pipe_recibir_c[PIPE_WRITE]);
-  close(pipe_recibir_c[PIPE_READ]);
 
   for (int j = 0; j < n; j++) {
-    if (j == ((i - 1) % n)) {
-      close(pipe_fd[j][PIPE_WRITE]);
-    } else if (i == j) {   
-      close(pipe_fd[j][PIPE_READ]);
-    } else {
-      close(pipe_fd[j][PIPE_READ]);
-      close(pipe_fd[j][PIPE_WRITE]);
-    }
+    if(j == i){
+      close(pipes_hijos[j][PIPE_WRITE]);
+    } else if (j == (i + 1) % n ) {
+      close(pipes_hijos[j][PIPE_READ]);
+    }else{
+      close(pipes_hijos[j][PIPE_READ]);
+      close(pipes_hijos[j][PIPE_WRITE]);
+    }  
   }
   
-  int c;
-  read(pipe_fd[(i - 1) % n][PIPE_READ], &c, sizeof(c));
+  int c = 0;
+  read(pipes_hijos[i][PIPE_READ], &c, sizeof(c));
+  printf("Soy proceso: %i y leo numero que me escribieron: %i\n",i, c);
+
   c++;
-  write(pipe_fd[i][PIPE_WRITE], &c, sizeof(c));
+  printf("Soy proceso: %i y escribo en proceso: %i el num: %i\n\n",i, (i+1) % n, c);
+  write(pipes_hijos[(i + 1 ) % n][PIPE_WRITE], &c, sizeof(c));
+
+  exit(EXIT_SUCCESS);
 }
 
 int main(int argc, char **argv) {	
   //Funcion para cargar nueva semilla para el numero aleatorio
   srand(time(NULL));
 
+  // n = cantidad de procesos
+  // start = proceso inicial
+  // buffer = numero c 
   int status, pid, n, start, buffer;
+
   n = atoi(argv[1]);
   buffer = atoi(argv[2]);
   start = atoi(argv[3]);
 
+  // Hardcodeado para debuggear
+  //n= 3;
+  //buffer = 2;
+  //start = 1;
+
+  // Comentado para debuggear 
   if (argc != 4){ printf("Uso: anillo <n> <c> <s> \n"); exit(0);}    
-  printf("Se crearán %i procesos, se enviará el caracter %i desde proceso %i \n", n, buffer, start);
+  printf("Se crearán %i procesos, se enviará el caracter %i desde proceso %i \n\n", n, buffer, start);
   
-  int pipe_enviar_c[2];
-  pipe(pipe_enviar_c);
+  // Pipes de comunicacion hijos a padre
+  int pipe_padre[2];
+  pipe(pipe_padre);
   
-  int pipe_recibir_c[2];
-  pipe(pipe_recibir_c);
-  
-  int pipes[n][2];
+  // Pipes de comunicacion entre hijos
+  int pipes_hijos[n][2];
   for (int i = 0; i < n; i++) { 
-    pipe(pipes[i]);
+    pipe(pipes_hijos[i]);
   }
   
+  // Padre le escribe al proceso inicial el numero c
+  write(pipes_hijos[start-1][PIPE_WRITE], &buffer, sizeof(buffer));
+
   for (int i = 0; i < n; i++) {
-    pid = fork();
-    if (pid == 0) {
+    //pid = fork();
+    if (fork() == 0) {
       if (i+1 == start) {
-        ejecutar_hijo_inicial(i, n, pipes, pipe_enviar_c, pipe_recibir_c);
-        write(pipe_enviar_c[PIPE_WRITE], &buffer, sizeof(buffer));
+        ejecutar_hijo_inicial(i, n, pipes_hijos, pipe_padre);
       } else {
-        ejecutar_hijo_i(i, n, pipes, pipe_enviar_c, pipe_recibir_c);
+        ejecutar_hijo_i(i, n, pipes_hijos, pipe_padre);
       }
-    }
+    } 
   }
   
-  int c_actualizado;
-  read(pipe_recibir_c[PIPE_READ], &c_actualizado, sizeof(c_actualizado));
-  printf("Resultado total: %d\n", c_actualizado);
+  // Espera que terminen todos los procesos hijos
+  for( int i = 0; i < n; i++){
+    wait(NULL);
+  }
+
+  // Padre lee resultado final
+    // int resultado = 0;
+    // read(pipe_padre[PIPE_READ], &resultado, sizeof(resultado));
+    // printf('Resultado final es: %i', resultado);
+  printf("final del padre \n");
   
 }
