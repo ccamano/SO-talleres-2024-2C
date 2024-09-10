@@ -28,15 +28,16 @@ void ejecutar_hijo_inicial(int i, int n, int pipes_hijos[][2], int pipe_padre[2]
   int c;
   read(pipe_padre[PIPE_READ], &c, sizeof(c));
   
+  
   int secreto = generate_random_number();
-  secreto += c;
+  //secreto +=  c;
   printf("número secreto %d\n", secreto);
   
   while(c < secreto) {
     c++;
     write(pipes_hijos[i][PIPE_WRITE], &c, sizeof(c));
     read(pipes_hijos[(n + i - 1) % n][PIPE_READ], &c, sizeof(c));
-    printf("recibi el c con valor: %d en hijo: %d\n", c, i);
+    printf("Soy el hijo %d, el hijo inicial. Recibí un mensaje con valor %d desde el hijo %d\n", ((i+1) % n), c, i);
   }
   
   write(pipe_padre[PIPE_WRITE], &c, sizeof(c));
@@ -51,7 +52,7 @@ void ejecutar_hijo_i(int i, int n, int pipes_hijos[][2]) {
   int c;
   while (1) {
     read(pipes_hijos[(n + i - 1) % n][PIPE_READ], &c, sizeof(c));
-    printf("recibi el c con valor: %d en hijo: %d\n", c, i);
+    printf("Soy el hijo %d. Recibí un mensaje con valor %d desde el hijo %d\n", ((i+1) % n), c, i);
     c++;
     write(pipes_hijos[i][PIPE_WRITE], &c, sizeof(c));
   }
@@ -61,6 +62,8 @@ void ejecutar_hijo_i(int i, int n, int pipes_hijos[][2]) {
 
 int main(int argc, char **argv)
 {
+
+  if (argc != 4){ printf("Uso: anillo <n> <c> <s> \n"); exit(0);}
   //Funcion para cargar nueva semilla para el numero aleatorio
   srand(time(NULL));
 
@@ -69,8 +72,15 @@ int main(int argc, char **argv)
   buffer = atoi(argv[2]);
   start = atoi(argv[3]);
 
-  if (argc != 4){ printf("Uso: anillo <n> <c> <s> \n"); exit(0);}    
-  printf("Se crearán %i procesos, se enviará el caracter %i desde proceso %i \n\n", n, buffer, start);
+  
+
+  if (start >= n){ printf("Asegurarse que numero del proceso inicial sea menor a la cantidad de procesos en el anillo (menos 1) \n"); exit(0);}        
+  
+  if (n < 3){ printf("Tiene que haber al menos 3 procesos hijos \n"); exit(0);}
+
+  if(start < 0) {printf("Parámetro start inválido, debería ser un número positivo\n"); exit(0);}
+
+  printf("Se crearán %i procesos, se enviará el número %i desde proceso %i \n\n", n, buffer, start);
   
   int pipe_padre[2];
   pipe(pipe_padre);
@@ -97,14 +107,23 @@ int main(int argc, char **argv)
       children[i] = pid;
     }
   }
-    
+  
+
+  
+
   int resultado;
+  
+  //Hacemos este sleep para simular un read bloqueante, evitar que el padre mate procesos antes de recibir el resultado.
+  sleep(0.5);
+
   read(pipe_padre[PIPE_READ], &resultado, sizeof(resultado));  
   printf("Resultado total: %d\n", resultado);
   
   for (int i = 0; i < n; i++) {
     if (i+1 != start) kill(children[i], SIGKILL);  
   }
+
+  free(children);
   
   return 0;
 }
