@@ -55,6 +55,7 @@ void ejecutar_hijo_i(int i, int n, int pipes_hijos[][2]) {
     printf("Soy el hijo %d. Recibí un mensaje con valor %d desde el hijo %d\n", ((i+1) % n), c, i);
     c++;
     write(pipes_hijos[i][PIPE_WRITE], &c, sizeof(c));
+    
   }
 
 }
@@ -108,22 +109,25 @@ int main(int argc, char **argv)
     }
   }
   
-
+  
+  
+  //Este sleep asegura para cantidad chica de procesos que no haya race caonditions (?)
+  sleep(1);
   
 
   int resultado;
-  
-  //Hacemos este sleep para simular un read bloqueante, evitar que el padre mate procesos antes de recibir el resultado.
-  sleep(0.5);
-
-  read(pipe_padre[PIPE_READ], &resultado, sizeof(resultado));  
+  read(pipe_padre[PIPE_READ], &resultado, sizeof(resultado));
   printf("Resultado total: %d\n", resultado);
   
+
+
+
   for (int i = 0; i < n; i++) {
     if (i+1 != start) kill(children[i], SIGKILL);  
   }
+     
 
   free(children);
-  
   return 0;
+
 }
