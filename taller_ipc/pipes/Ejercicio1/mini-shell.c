@@ -32,14 +32,16 @@ void ejecutar_cmd(char* cmd, char** fila) {
 
 void ejecutar_hijo_1(int count, matrix progs, int pipe_fd[][2]) {
   
-  close(pipe_fd[0][PIPE_READ]);
   // Conectar escritura a stdout
+  close(pipe_fd[0][PIPE_READ]);
   dup2(pipe_fd[0][PIPE_WRITE], STD_OUTPUT);
-  // Cerrar lectura
+
+  // Cerrar pipes innecesarios
   for (int i = 1; i < count; i++) {
     close(pipe_fd[i][PIPE_READ]);
     close(pipe_fd[i][PIPE_WRITE]);
   }
+
   // Ejecutar programa
   ejecutar_cmd(progs[0][0], progs[0]);
 }
@@ -48,9 +50,11 @@ void ejecutar_hijo_i(int count, matrix progs, int i, int pipe_fd[][2]) {
 
   // Conectar lectura a stdin
   dup2(pipe_fd[i-1][PIPE_READ], STD_INPUT);
+
   // Conectar escritura a stdout
   dup2(pipe_fd[i][PIPE_WRITE], STD_OUTPUT);
   
+  // Cerrar pipes innecesarios
   for (int j = 0; j < count; j++) {
     if (j == i - 1) {
       close(pipe_fd[j][PIPE_WRITE]);
@@ -67,24 +71,30 @@ void ejecutar_hijo_i(int count, matrix progs, int i, int pipe_fd[][2]) {
 } 
 
 void ejecutar_hijo_n(int count, matrix progs, int pipe_fd[][2]) {
-  // Conectar lectura a stdin
+  
+  // Conectar lectura  a stdin
   close(pipe_fd[count - 1][PIPE_WRITE]);
   dup2(pipe_fd[count - 1][PIPE_READ], STD_INPUT);
-  // Cerrar escritura
+
+  // Cerrar pipes innecesarios
   for (int j = 0; j < count-1; j++) {
       close(pipe_fd[j][PIPE_READ]);
       close(pipe_fd[j][PIPE_WRITE]);
   }
+
   // Ejecutar programa
   ejecutar_cmd(progs[count][0], progs[count]);
 }
 
 void ejecutar_hijo(matrix progs, int i, int count, int pipe[][2]) {
   if (i == 0) {
+	// Ejecutar hijo inicial
     ejecutar_hijo_1(count, progs, pipe);
   } else if (i != count && i != 0) {
+	// Ejecutar hijos del medio
     ejecutar_hijo_i(count, progs, i, pipe);
   } else {
+	// Ejecutar hijo final
     ejecutar_hijo_n(count, progs, pipe);
   }
 }
@@ -93,7 +103,6 @@ static int run(matrix progs, size_t count)
 {	
 	int r, status;
 
-	
 	int pipes[count - 1][2];
 	for (int i = 0; i < count - 1; i++) { 
 	  pipe(pipes[i]);
@@ -102,24 +111,19 @@ static int run(matrix progs, size_t count)
 	//Reservo memoria para el arreglo de pids
 	pid_t *children = malloc(sizeof(*children) * count);
 	
-	pid_t pid;
 	for (int i = 0; i < count; i++) {
-	  pid = fork();
-	  if (pid != 0) {
-	    children[i] = pid;
-	  } else {
+	  if ((children[i] = fork()) == 0)
 	    ejecutar_hijo(progs, i, count - 1, pipes);
-	  }
 	}
 	
-        //TODO: Para cada proceso hijo:
+    // Para cada proceso hijo:
 	//1. Redireccionar los file descriptors adecuados al proceso
 	//2. Ejecutar el programa correspondiente
 
-        for (int i = 0; i < count - 1; i++) {  
-          close(pipes[i][PIPE_WRITE]);
-          close(pipes[i][PIPE_READ]);
-        }
+    for (int i = 0; i < count - 1; i++) {  
+    	close(pipes[i][PIPE_WRITE]);
+        close(pipes[i][PIPE_READ]);
+    }
 
 	//Espero a los hijos y verifico el estado que terminaron
 	for (int i = 0; i < count; i++) {
@@ -132,6 +136,7 @@ static int run(matrix progs, size_t count)
 			return -1;
 		}
 	}
+
 	r = 0;
 	free(children);
 
@@ -141,6 +146,7 @@ static int run(matrix progs, size_t count)
 
 int main(int argc, char **argv)
 {
+	
 	if (argc < 2) {
 		printf("El programa recibe como parametro de entrada un string con la linea de comandos a ejecutar. \n"); 
 		printf("Por ejemplo ./mini-shell 'ls -a | grep anillo'\n");
