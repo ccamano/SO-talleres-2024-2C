@@ -3,7 +3,7 @@
 
 #include <atomic>
 #include <cstddef>
-
+#include <mutex>
 template<typename T>
 class ListaAtomica {
  private:
@@ -13,7 +13,7 @@ class ListaAtomica {
         T _valor;
         Nodo *_siguiente;
     };
-
+    std::mutex writer_mutex;
     std::atomic<Nodo *> _cabeza;
 
  public:
@@ -31,6 +31,14 @@ class ListaAtomica {
 
     void insertar(const T &valor) {
         // Completar (Ejercicio 1)
+        Nodo *new_head, *old_head;
+        new_head = new Nodo(valor); //No atómicamente creo el nodo con el valor indicado que será la nueva cabeza
+        writer_mutex.lock();  //Nada asegura, de no usar un mutex, que el valor de la cabeza no cambie entre las 3 operaciones siguientes por la presencia de otro escritor. El mutex asegura la consistencia del nodo de la cabeza antes de insertar.
+        old_head = _cabeza.load();
+        new_head -> _siguiente = old_head;
+        _cabeza.store(new_head);
+        writer_mutex.unlock();
+
     }
 
     T& operator[](size_t i) const {
