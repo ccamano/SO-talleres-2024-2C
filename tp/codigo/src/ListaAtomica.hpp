@@ -59,6 +59,8 @@ class ListaAtomica {
         return cant;
     }
 
+    
+
     struct iterator {
     private:
         ListaAtomica *_lista;

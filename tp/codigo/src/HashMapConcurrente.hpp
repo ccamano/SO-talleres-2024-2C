@@ -26,11 +26,14 @@ class HashMapConcurrente {
 
  private:
     ListaAtomica<hashMapPair> *tabla[HashMapConcurrente::cantLetras];
-
     static unsigned int hashIndex(std::string clave);
     std::mutex writer_mutex[HashMapConcurrente::cantLetras]; //Un mutex para escribir en cada bucket
-    int writer_free[HashMapConcurrente::cantLetras]; //Un mutex para leer en cada bucket solo cuando no haya nadie escribiendo
-    
+    sem_t writer_free[HashMapConcurrente::cantLetras]; //Permite a los readers entrar cuando no haya un escritor modificando
+    sem_t reader_free[HashMapConcurrente::cantLetras]; //Permite a los writers entrar cuando ningun reader esté leyendo datos
+    unsigned int readers[HashMapConcurrente::cantLetras]; //Scoreboard
+    std::mutex reader_mutex[HashMapConcurrente::cantLetras];
+    void incrementarLectoresAtomic(unsigned int bucket);
+    void decrementarLectoresAtomic(unsigned int bucket);
 };
 
 #endif  /* HMC_HPP */
