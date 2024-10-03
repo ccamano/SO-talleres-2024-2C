@@ -33,6 +33,7 @@ void HashMapConcurrente::incrementar(std::string clave) {
     else{
         unsigned int hash = hashIndex(clave);
         hashMapPair new_key = hashMapPair(clave,1);
+        table_mutex.lock();
         sem_wait(&writer_free[hash]);//Espera a que termine el escritor anterior, si existe, y bloquea el turnstile para los readers siguientes
         sem_wait(&reader_free[hash]);//Espera a que no hayan lectores en la seccion crítica
         writer_mutex[hash].lock();
@@ -50,7 +51,7 @@ void HashMapConcurrente::incrementar(std::string clave) {
         writer_mutex[hash].unlock();
         sem_post(&reader_free[hash]); //Habilita al siguiente batch de threads leyendo datos
         sem_post(&writer_free[hash]); //Recien a partir de esta instruccion pueden entrar lectores y escritores. Lo toma quien llega primero, ya que el siguiente escritor estaria esperando aca, y todos los lectores que estaban adentro terminaron su codigo antes de que este escritor entre
-
+        table_mutex.unlock();
     }
 }
 
@@ -125,38 +126,41 @@ float HashMapConcurrente::promedio() {
 
     float sum = 0.0;
     unsigned int count = 0;
+    table_mutex.lock();
     for (unsigned int index = 0; index < HashMapConcurrente::cantLetras; index++) {
-        //Correccion del ej 3a: uso el mutex de writers para bloquear cada writer de cada bucket. Esto no impide inconsistencias, pero impide race conditions en un mismo bucket
-        writer_mutex[count].lock();
+        //Correccion del ej 3a: bloqueo toda la tabla para escrituras
+       
         for (const auto& p : *tabla[index]) {
             sum += p.second;
             count++;
         }
-        writer_mutex[count].unlock();
     }
+    table_mutex.unlock();
     if (count > 0) {
         return sum / count;
     }
     return 0;        
 }
 
-/*HashMapConcurrente::promedioParalelo(unsigned int cantThreads) {
+/*std::pair<std::string, unsigned int> HashMapConcurrente::promedioParalelo(unsigned int cantThreads) {
 
     float sum = 0.0;
     unsigned int count = 0;
+    table_mutex.lock();
     for (unsigned int index = 0; index < HashMapConcurrente::cantLetras; index++) {
-        //Correccion del ej 3a: uso el mutex de writers para bloquear cada writer de cada bucket. Esto no impide inconsistencias, pero impide race conditions en un mismo bucket
-        writer_mutex[count].lock();
+        //Corrección del 3a: bloqueo toda la tabla para escrituras
+        
         for (const auto& p : *tabla[index]) {
             sum += p.second;
             count++;
         }
-        writer_mutex[count].unlock();
+        
     }
+    table_mutex.unlock();
     if (count > 0) {
-        return sum / count;
+        return 
     }
-    return 0;        
+    return        
 }*/
 
 

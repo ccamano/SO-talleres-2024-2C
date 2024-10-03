@@ -20,7 +20,7 @@ class HashMapConcurrente {
     void incrementar(std::string clave);
     std::vector<std::string> claves();
     unsigned int valor(std::string clave);
-
+    std::pair<std::string, unsigned int> promedioParalelo(unsigned int cantThreads);
     float promedio();
 
 
@@ -34,6 +34,8 @@ class HashMapConcurrente {
     std::mutex reader_mutex[HashMapConcurrente::cantLetras];
     void incrementarLectoresAtomic(unsigned int bucket);
     void decrementarLectoresAtomic(unsigned int bucket);
+    std::mutex table_mutex; //Mutex para toda la tabla, usada para que haya contencion entre calculo de promedio e insercion de elementos
+
 };
 
 #endif  /* HMC_HPP */
