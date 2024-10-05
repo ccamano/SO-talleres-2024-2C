@@ -3,21 +3,27 @@
 
 #include <atomic>
 #include <cstddef>
+#include <mutex>
+
+using namespace std;
 
 template<typename T>
 class ListaAtomica {
  private:
     struct Nodo {
-        Nodo(const T &val) : _valor(val), _siguiente(nullptr) {}
+        Nodo(const T &val) : _valor(val), _siguiente(nullptr), _mtx() {}
 
         T _valor;
         Nodo *_siguiente;
+        mutex _mtx;
     };
 
-    std::atomic<Nodo *> _cabeza;
+    mutex _mtx_insertar;
+    atomic<Nodo *> _cabeza;
+    
 
  public:
-    ListaAtomica() : _cabeza(nullptr) {}
+    ListaAtomica() : _cabeza(nullptr), _mtx_insertar() {}
 
     ~ListaAtomica() {
         Nodo *n, *t;
@@ -31,6 +37,15 @@ class ListaAtomica {
 
     void insertar(const T &valor) {
         // Completar (Ejercicio 1)
+
+        this->_mtx_insertar.lock();
+        
+        Nodo* nueva_cabeza =  new Nodo(valor);
+        nueva_cabeza->_siguiente = _cabeza.load();
+        
+        _cabeza.store(nueva_cabeza);
+
+        this->_mtx_insertar.unlock();
     }
 
     T& operator[](size_t i) const {
