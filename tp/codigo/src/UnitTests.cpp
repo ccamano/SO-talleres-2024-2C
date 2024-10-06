@@ -1,9 +1,12 @@
 #include <vector>
+#include <thread>
 #include "lib/littletest.hpp"
 
 #include "../src/ListaAtomica.hpp"
 #include "../src/HashMapConcurrente.hpp"
 #include "../src/CargarArchivos.hpp"
+
+using namespace std;
 
 // Tests Ejercicio 1
 
@@ -122,6 +125,26 @@ LT_BEGIN_TEST(TestsEjercicio2, ValorEsCorrectoTrasVariasInsercionesDistintoBucke
     LT_CHECK_EQ(hM.valor("Heladera"), 2);
     LT_CHECK_EQ(hM.valor("Microondas"), 1);
 LT_END_TEST(ValorEsCorrectoTrasVariasInsercionesDistintoBucket)
+
+LT_BEGIN_TEST(TestsEjercicio2, ValorEnMedioDeIncrementarEsCorrecto)
+
+    vector<thread> threads;
+    //threads.emplace_back(hM->incrementar, "Heladera");
+    
+    /* threads.emplace_back(HashMapConcurrente::incrementar, ref(hM), "Heladera");
+    threads.emplace_back([hM] {hM.incrementar("Heladera");});
+    threads.emplace_back(HashMapConcurrente::incrementar, ref(hM), "Heladera");
+    threads.emplace_back(HashMapConcurrente::incrementar, ref(hM), "Heladera");
+    threads.emplace_back(HashMapConcurrente::incrementar, ref(hM), "Heladera"); */
+    //threads.emplace_back(hM.incrementar, "Heladera");
+    //threads.emplace_back(hM.incrementar, "Heladera");
+    
+    for (auto &t: threads) {
+        t.join();
+    }
+    LT_CHECK_EQ(hM.valor("Heladera"), 4);
+
+LT_END_TEST(ValorEnMedioDeIncrementarEsCorrecto)
 
 LT_BEGIN_TEST(TestsEjercicio2, ClavesEsCorrectoTrasVariasInsercionesDistintoBucket)
     hM.incrementar("Heladera");

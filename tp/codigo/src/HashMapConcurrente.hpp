@@ -16,10 +16,12 @@ class HashMapConcurrente {
     static constexpr int cantLetras = 26;
 
     HashMapConcurrente();
-
+    
     void incrementar(std::string clave);
     std::vector<std::string> claves();
     unsigned int valor(std::string clave);
+   
+   mutex _buckets_lock[cantLetras];
 
     float promedio();
 
