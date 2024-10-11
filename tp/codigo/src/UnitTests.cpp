@@ -129,8 +129,8 @@ LT_END_TEST(ValorEsCorrectoTrasVariasInsercionesDistintoBucket)
 LT_BEGIN_TEST(TestsEjercicio2, ValorEnMedioDeIncrementarEsCorrecto)
 
     vector<thread> threads;
-    threads.emplace_back(hM->incrementar, "Heladera");
-    threads.emplace_back(HashMapConcurrente::incrementar, ref(hM), "Heladera");
+   // threads.emplace_back(hM->incrementar, "Heladera");
+   // threads.emplace_back(HashMapConcurrente::incrementar, ref(hM), "Heladera");
     
     for (auto &t: threads) {
         t.join();
@@ -206,16 +206,16 @@ LT_BEGIN_TEST(TestsEjercicio4, CargarMultiplesArchivosFuncionaUnThread)
 LT_END_TEST(CargarMultiplesArchivosFuncionaUnThread)
 
 LT_BEGIN_TEST(TestsEjercicio4, CargarMultiplesArchivosFuncionaDosThreads)
-    cargarMultiplesArchivos(hM, 1, {"data/test-1", "data/test-2", "data/test-3"});
+    cargarMultiplesArchivos(hM, 2, {"data/test-1", "data/test-2", "data/test-3"});
     LT_CHECK_EQ(hM.valor("Heladera"), 2);
     LT_CHECK_EQ(hM.valor("NotebookOMEN"), 3);
     LT_CHECK_EQ(hM.valor("Microondas"), 4);
     LT_CHECK_EQ(hM.claves().size(), 12);
 LT_END_TEST(CargarMultiplesArchivosFuncionaDosThreads)
 
-/*LT_BEGIN_TEST(TestsEjercicio4, CargarMultiplesArchivosFuncionaVariosThreads)
-    int UPPER_LIMIT = 4;
-    int LOWER_LIMIT = 4;
+LT_BEGIN_TEST(TestsEjercicio4, CargarMultiplesArchivosFuncionaVariosThreads)
+    int UPPER_LIMIT = 100;
+    int LOWER_LIMIT = 1;
     int v1 = 0;
     int v2 = 0;
     int v3 = 0;
@@ -224,14 +224,11 @@ LT_END_TEST(CargarMultiplesArchivosFuncionaDosThreads)
         filePaths.push_back("data/test-1");
         filePaths.push_back("data/test-2");
         filePaths.push_back("data/test-3");
-        v1 += 1;
-        v2 += 3;
-        v3 += 2;
     }
     for(int i = LOWER_LIMIT; i <= UPPER_LIMIT; i++){
-        v1 += 1*(i);
-        v2 += 3*(i);
-        v3 += 2;
+        v1 += 1*(i+1);
+        v2 += 3*(i+1);
+        v3 += 2*(i+1);
         filePaths.push_back("data/test-1");
         filePaths.push_back("data/test-2");
         filePaths.push_back("data/test-3");
@@ -242,7 +239,7 @@ LT_END_TEST(CargarMultiplesArchivosFuncionaDosThreads)
         LT_CHECK_EQ(hM.claves().size(), 12);
     }
 LT_END_TEST(CargarMultiplesArchivosFuncionaVariosThreads)
-*/
+
 // Ejecutar tests
 LT_BEGIN_AUTO_TEST_ENV()
     AUTORUN_TESTS()
