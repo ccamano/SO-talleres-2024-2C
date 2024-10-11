@@ -37,16 +37,17 @@ class ListaAtomica {
 
     void insertar(const T &valor) {
         // Completar (Ejercicio 1)
-
+        
         this->_mtx_insertar.lock();
         
         Nodo* nueva_cabeza =  new Nodo(valor);
         nueva_cabeza->_siguiente = _cabeza.load();
-        
         _cabeza.store(nueva_cabeza);
 
         this->_mtx_insertar.unlock();
     }
+
+    
 
     T& operator[](size_t i) const {
         Nodo *n = _cabeza.load();

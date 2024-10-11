@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "ListaAtomica.hpp"
+#include "Lightswitch.hpp"
 
 typedef std::pair<std::string, unsigned int> hashMapPair;
 
@@ -21,15 +22,19 @@ class HashMapConcurrente {
     std::vector<std::string> claves();
     unsigned int valor(std::string clave);
    
-   mutex _buckets_lock[cantLetras];
+    mutex barrera[cantLetras]; // turnstile
+    mutex _buckets_lock[cantLetras]; // roomEmpty
+    Lightswitch lightswitch;
 
     float promedio();
-
+    float promedioParalelo(unsigned int cantThreads);
 
  private:
     ListaAtomica<hashMapPair> *tabla[HashMapConcurrente::cantLetras];
 
     static unsigned int hashIndex(std::string clave);
+    pair<unsigned int, unsigned int> sumaYCantidadPorFila(unsigned int fila);
+    void promedioParaleloDesde(unsigned int &start, mutex &start_mutex, pair<unsigned int, unsigned int> &resultado, mutex &resultado_mutex);
 };
 
 #endif  /* HMC_HPP */
