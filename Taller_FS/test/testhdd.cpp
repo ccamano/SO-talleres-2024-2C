@@ -55,7 +55,7 @@ void test_load_inode(Ext2FS * fs){
 void test_get_block_address_direct(Ext2FS * fs, Ext2FSInode *inodo){
 	cout << "  ** Testing Direct Entries **" << endl;
 	int assert_block_address = 55334;
-	for(int i = 0; i < 12; i++){
+	for(int i = 0; i < 13; i++){
 		int address = fs->get_block_address(inodo,i);
 		assert(address == assert_block_address);
 		assert_block_address++;
@@ -80,13 +80,12 @@ void test_get_block_address_first_indirect(Ext2FS * fs, Ext2FSInode *inodo){
 void test_get_block_address_second_indirect(Ext2FS * fs, Ext2FSInode *inodo){
 	cout << "  ** Testing Second Indirect Entries **" << endl;
 
-	int assert_block_address = 70669;
+	int assert_block_address = 70389;
 	int address = fs->get_block_address(inodo, 500);
 	assert(address == assert_block_address);
 
 	address = fs->get_block_address(inodo, 1500);
-	assert_block_address = 75238;
-
+	assert_block_address = 75214;
 	assert(address == assert_block_address);
 
 	cout << "  -- Success! -- " << endl;

@@ -299,19 +299,68 @@ unsigned int Ext2FS::get_block_address(struct Ext2FSInode * inode, unsigned int 
 {
 
 	//TODO: Ejercicio 2
-	if (block_number < 13) {
+	unsigned int block_size = 1024;
+	unsigned int last_direct = 12;
+	unsigned int dirs_per_block = block_size/sizeof(unsigned int);
+	unsigned int last_indirect = last_direct + dirs_per_block;
+	unsigned int last_double_indirect = last_indirect + dirs_per_block*dirs_per_block;
+	unsigned int last_triple_indirect = last_double_indirect + dirs_per_block*dirs_per_block*dirs_per_block;
+	if (block_number < last_direct) {
+	  //Bloque directo
 	  return inode->block[block_number];
-	} else if (block_number >= 13 && block_number < 13 + (1024/sizeof(unsigned int))) {
-	  unsigned int nuevo_bloque = block_number - 13; 
+	} 
+	
+	else if (block_number >= last_direct && block_number < last_indirect) {
+	  //Indireccion simple
+	  unsigned int indirect_block_index = block_number - last_direct; 
 	  
-	  unsigned int* buffer = malloc(1024);
-	  read_block(inode->block[13], (unsigned char *)buffer);
-	  
-          return buffer[block_number];
-        } else {
-          unsigned int nuevo_bloque = block_number - lo que falta ; 
-          Ext2FSInode * inodo = (inode->block[14])[block_number];
-        }
+	  unsigned int* indirect_buffer = (unsigned int*) malloc(sizeof(unsigned int*)); ;
+	  read_block(inode->block[12], (unsigned char *)indirect_buffer);
+	  return indirect_buffer[indirect_block_index];
+    }
+	else if(block_number >= last_indirect && block_number < last_double_indirect) {
+        //Indireccion doble
+		unsigned int nuevo_bloque = block_number - last_indirect;
+		
+		unsigned int double_indirect_block_index = nuevo_bloque / dirs_per_block;
+		unsigned int indirect_block_index = nuevo_bloque % dirs_per_block;
+		
+		unsigned int* double_indirect_buffer = (unsigned int*) malloc(sizeof(unsigned int*)); ; 
+		read_block(inode->block[13], (unsigned char *)double_indirect_buffer);
+        
+		unsigned int* indirect_buffer = (unsigned int*) malloc(sizeof(unsigned int*));
+	    read_block(double_indirect_buffer[double_indirect_block_index], (unsigned char *)indirect_buffer);
+		
+		return indirect_buffer[indirect_block_index];
+    }
+	else if(block_number >= last_double_indirect && block_number < last_triple_indirect){
+		//Indireccion triple
+		unsigned int nuevo_bloque = block_number - last_double_indirect;
+		
+		unsigned int triple_indirect_block_index = nuevo_bloque / (dirs_per_block*dirs_per_block);
+		unsigned int nuevo_bloque_2 = nuevo_bloque % dirs_per_block*dirs_per_block;
+		
+		unsigned int double_indirect_block_index = nuevo_bloque_2 / dirs_per_block;
+		unsigned int indirect_block_index = nuevo_bloque_2 % dirs_per_block;
+
+		
+		unsigned int* triple_indirect_buffer = (unsigned int*) malloc(sizeof(unsigned int*));
+		read_block(inode->block[14], (unsigned char *)triple_indirect_buffer);
+
+		unsigned int* double_indirect_buffer = (unsigned int*) malloc(sizeof(unsigned int*)); 
+		read_block(triple_indirect_buffer[triple_indirect_block_index], (unsigned char *)double_indirect_buffer);
+        
+		unsigned int* indirect_buffer = (unsigned int*) malloc(sizeof(unsigned int*)); 
+	    read_block(double_indirect_buffer[double_indirect_block_index], (unsigned char *)indirect_buffer);
+		
+		return indirect_buffer[indirect_block_index];
+
+	}
+	else{
+		//block_number es demasiado grande
+		std::cout << "El número de bloque es demasiado grande para entrar en un inodo\n" << std::endl;
+	}
+
 }
 
 void Ext2FS::read_block(unsigned int block_address, unsigned char * buffer)
