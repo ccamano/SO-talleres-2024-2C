@@ -291,7 +291,7 @@ struct Ext2FSInode * Ext2FS::load_inode(unsigned int inode_number)
 	read_block(descriptor_de_bloque->inode_table + bloque_de_inodo, buffer);
 	
 	Ext2FSInode * temp = &((Ext2FSInode *)buffer)[indice_en_bloque];
-	std::cout << *temp << std::endl;
+
 	return temp;
 }
 
@@ -301,39 +301,55 @@ unsigned int Ext2FS::get_block_address(struct Ext2FSInode * inode, unsigned int 
 	//TODO: Ejercicio 2
 	unsigned int block_size = 1024;
 	unsigned int last_direct = 12;
-	unsigned int dirs_per_block = block_size/sizeof(unsigned int);
-	unsigned int last_indirect = last_direct + dirs_per_block;
-	unsigned int last_double_indirect = last_indirect + dirs_per_block*dirs_per_block;
-	unsigned int last_triple_indirect = last_double_indirect + dirs_per_block*dirs_per_block*dirs_per_block;
+	
 	if (block_number < last_direct) {
 	  //Bloque directo
 	  return inode->block[block_number];
 	} 
 	
-	else if (block_number >= last_direct && block_number < last_indirect) {
+	unsigned int dirs_per_block = block_size/sizeof(unsigned int);
+	unsigned int last_indirect = last_direct + dirs_per_block;
+	if (block_number >= last_direct && block_number < last_indirect) {
 	  //Indireccion simple
 	  unsigned int indirect_block_index = block_number - last_direct; 
 	  
-	  unsigned int* indirect_buffer = (unsigned int*) malloc(sizeof(unsigned int*)); ;
+	  unsigned int* indirect_buffer = (unsigned int*) malloc(sizeof(unsigned int*));
 	  read_block(inode->block[12], (unsigned char *)indirect_buffer);
-	  return indirect_buffer[indirect_block_index];
+
+	  
+	  unsigned int res =  indirect_buffer[indirect_block_index];
+	  free(indirect_buffer);
+	  
+	  return res;
+
+	  
     }
-	else if(block_number >= last_indirect && block_number < last_double_indirect) {
+	
+	unsigned int last_double_indirect = last_indirect + dirs_per_block*dirs_per_block;
+	if(block_number >= last_indirect && block_number < last_double_indirect) {
         //Indireccion doble
 		unsigned int nuevo_bloque = block_number - last_indirect;
 		
 		unsigned int double_indirect_block_index = nuevo_bloque / dirs_per_block;
 		unsigned int indirect_block_index = nuevo_bloque % dirs_per_block;
 		
-		unsigned int* double_indirect_buffer = (unsigned int*) malloc(sizeof(unsigned int*)); ; 
+		unsigned int* double_indirect_buffer = (unsigned int*) malloc(sizeof(unsigned int*));
 		read_block(inode->block[13], (unsigned char *)double_indirect_buffer);
         
 		unsigned int* indirect_buffer = (unsigned int*) malloc(sizeof(unsigned int*));
 	    read_block(double_indirect_buffer[double_indirect_block_index], (unsigned char *)indirect_buffer);
 		
-		return indirect_buffer[indirect_block_index];
+		
+		free(double_indirect_buffer);
+		unsigned int res =  indirect_buffer[indirect_block_index];
+		free(indirect_buffer);
+		
+		return res;
+
     }
-	else if(block_number >= last_double_indirect && block_number < last_triple_indirect){
+	
+	unsigned int last_triple_indirect = last_double_indirect + dirs_per_block*dirs_per_block*dirs_per_block;
+	if(block_number >= last_double_indirect && block_number < last_triple_indirect){
 		//Indireccion triple
 		unsigned int nuevo_bloque = block_number - last_double_indirect;
 		
@@ -353,13 +369,17 @@ unsigned int Ext2FS::get_block_address(struct Ext2FSInode * inode, unsigned int 
 		unsigned int* indirect_buffer = (unsigned int*) malloc(sizeof(unsigned int*)); 
 	    read_block(double_indirect_buffer[double_indirect_block_index], (unsigned char *)indirect_buffer);
 		
-		return indirect_buffer[indirect_block_index];
+		free(triple_indirect_buffer);
+		free(double_indirect_buffer);
+		unsigned int res =  indirect_buffer[indirect_block_index];
+		free(indirect_buffer);
+		
+		return res;
 
 	}
-	else{
-		//block_number es demasiado grande
-		std::cout << "El número de bloque es demasiado grande para entrar en un inodo\n" << std::endl;
-	}
+
+	//block_number es demasiado alto como para estar dentro de un inodo
+	std::cout << "El número de bloque es demasiado grande para entrar en un inodo\n" << std::endl;
 
 }
 
@@ -377,8 +397,108 @@ struct Ext2FSInode * Ext2FS::get_file_inode_from_dir_inode(struct Ext2FSInode * 
 		from = load_inode(EXT2_RDIR_INODE_NUMBER);
 	//std::cerr << *from << std::endl;
 	assert(INODE_ISDIR(from));
-
+    
+	unsigned int block_size = 1024;
+	
 	//TODO: Ejercicio 3
+    unsigned int cur_block_index = 0;
+	
+	
+	unsigned int cur_block_addr = get_block_address(from,cur_block_index); 
+	unsigned int next_block_addr = get_block_address(from,cur_block_index+1);
+	
+	
+	bool foundFile = false;
+	Ext2FSInode* res;
+
+	unsigned int size = (((from->size)-1) / block_size) + 1;
+	std::cout<< size << "," << from->size << std::endl;
+	Ext2FSDirEntry* block_buffer = (Ext2FSDirEntry*)malloc(sizeof(Ext2FSDirEntry*));
+	
+	while(!foundFile && cur_block_index < size){ //TODO, esta cota me parece demasiado, si se puede ver la cantidad de inodos o bloques ocupados sería joya
+        std::cout<< "antes de leer bloque en indice " << cur_block_index << " en address " << cur_block_addr  << std::endl;
+		read_block(cur_block_addr,(unsigned char*)block_buffer);
+		std::cout<< "despues de leer bloque" << std::endl;
+		unsigned int cur_block_byte = 0;
+		
+		
+
+		while(cur_block_byte < block_size && !foundFile){
+			
+            
+			
+			Ext2FSDirEntry* cur_dir_addr = block_buffer + cur_block_byte;
+			unsigned short cur_length;
+			
+
+			//Aprovecho que los structs dirEntry son __packed__
+			if(cur_block_byte + sizeof(unsigned int) + sizeof(short) + 3 >= block_size){
+				
+				//el dir entry actual ocupa al menos dos bloques
+				Ext2FSDirEntry* next_block_buffer = (Ext2FSDirEntry*)malloc(sizeof(Ext2FSDirEntry*));
+				read_block(next_block_addr,(unsigned char*)block_buffer);
+				
+				//Lo and behold, YandereDev code
+				if(cur_block_byte+sizeof(unsigned int) >= block_size){
+					//el numero de inodo queda partido entre los 2 bloques
+					unsigned int cur_inode_size = block_size-cur_block_byte;
+					unsigned int inode_rest_size = sizeof(unsigned int) - cur_inode_size;
+					
+
+				}
+				else if(cur_block_byte+sizeof(unsigned int) == block_size-1){
+					//en este bloque está solo el inodo
+				}
+				else if(cur_block_byte+sizeof(unsigned int) + sizeof(short) >= block_size){
+					//el record_length queda partido entre los dos bloques
+				} 
+				else if(cur_block_byte+sizeof(unsigned int)+sizeof(short) == block_size-1){
+					//El bloque termina con el record length
+				}
+				else if(cur_block_byte+sizeof(unsigned int) + sizeof(short) + 1 == block_size-1){
+					//El bloque termina con el name_length (como sizeof(char) es 1, no puede estar repartido entre bloques)
+				}
+				else if(cur_block_byte+sizeof(unsigned int) + sizeof(short) + 2 == block_size-1){
+					//El bloque termina con el file_type (como sizeof(char) es 1, no puede estar repartido entre bloques)
+				}
+				else{
+					//el nombre queda partido entre 2 archivos
+				}
+			}
+			else{
+				//Caso lindo: todo el struct esta en el mismo bloque
+				cur_length = cur_dir_addr->record_length;
+				 
+				if((char*) cur_dir_addr->name == filename){
+					foundFile = true;
+					res = load_inode(cur_dir_addr->inode);
+				}
+			
+            	cur_block_byte+= cur_length;
+			}
+
+			
+
+			
+		}
+
+
+
+
+    
+    	cur_block_addr = next_block_addr;
+		cur_block_index++;  
+		if(cur_block_index < size-1){
+	  		next_block_addr = get_block_address(from,cur_block_index+1);
+	   		}
+
+	}
+	if(foundFile){
+		return res;
+	}
+	else{
+		return -1;
+	}
 
 }
 
