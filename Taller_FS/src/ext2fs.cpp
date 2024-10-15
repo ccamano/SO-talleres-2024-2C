@@ -412,7 +412,7 @@ struct Ext2FSInode * Ext2FS::get_file_inode_from_dir_inode(struct Ext2FSInode * 
 	Ext2FSInode* res;
 
 	unsigned int size = (((from->size)-1) / block_size) + 1; //cantidad de bloques maximos a explorar:  el ultimo byte del inodo del directorio (contando desde 0) sobre el tamaño de un bloque en bytes, +1 por el off by one. 
-	std::cout << "Inodo del Directorio actual= " << *from<< std::endl;
+	
 	std::cout << "Tamaño en bytes del inodo actual = " << from->size << std::endl;
 	std::cout << "Tamaño en bloques del inodo actual = " << size << std::endl;
 
@@ -558,6 +558,54 @@ struct Ext2FSInode * Ext2FS::get_file_inode_from_dir_inode(struct Ext2FSInode * 
 					cur_block_byte = block_size + name_start_byte+unprocessed_name_length;
 					free(next_block_buffer);
 				}
+				else{
+					//Caso feo: el resto del nombre ocupa varios bloques.
+					std::string rest_of_name = "";
+					//Agrego el primer bloque;
+					for(unsigned int i = 0; i < block_size-name_start_byte; i++){
+						rest_of_name += name_start[i];
+					}
+
+
+					unsigned int extra_block_amount = name_length / block_size;
+					unsigned int last_block_remainder = name_length % block_size;
+					
+
+
+					//agrego todos los bloques extras enteros menos el ultimo
+					Ext2FSDirEntry* extra_block_buffer = (Ext2FSDirEntry*)malloc(sizeof(Ext2FSDirEntry*));
+					for(unsigned int i = 0; i < extra_block_amount-1; i++){
+						read_block(next_block_addr+i+1,(unsigned char*) extra_block_buffer);
+						for(int j = 0; j < block_size; j++){
+							char tmp = *((char*)(extra_block_buffer)+j);
+							rest_of_name += tmp;
+						}
+
+
+					}
+
+					read_block(next_block_addr+1+extra_block_amount,(unsigned char*) extra_block_buffer);
+					for(int j = 0; j < last_block_remainder; j++){
+							char tmp = *((char*)(extra_block_buffer)+j);
+							rest_of_name += tmp;
+						}
+
+					free(extra_block_buffer);
+					cur_name = (name_first_block + rest_of_name); 
+
+
+					//Actualizo los datos en base a los bloques que salté
+					cur_block_addr = get_block_address(from,cur_block_index+2+extra_block_amount) ;
+					cur_block_index+= 2+extra_block_amount;  
+					if(cur_block_index < size-1){
+	  					next_block_addr = get_block_address(from,cur_block_index+1);
+	   				}
+					cur_block_byte = block_size + last_block_remainder;
+					free(next_block_buffer);
+
+
+
+				}
 
 
 			}
@@ -582,10 +630,14 @@ struct Ext2FSInode * Ext2FS::get_file_inode_from_dir_inode(struct Ext2FSInode * 
 					res = load_inode(cur_dir_addr->inode);
 				}
 			else if(cur_filetype == 2 && cur_name != std::string(".") && cur_name != std::string("..")){ //Encontramos un directorio: vamos un nivel mas abajo con un llamado recursivo.
-				Ext2FSInode* rec_res = get_file_inode_from_dir_inode(load_inode(inode_num), filename);
+				Ext2FSInode* rec_inode = load_inode(inode_num);
+				Ext2FSInode* rec_res = get_file_inode_from_dir_inode(rec_inode, filename);
 				if(rec_res != nullptr){
 					foundFile = true;
 					res = rec_res;
+				}
+				else{
+				 cur_block_byte+= cur_length;
 				}
 			}
 			else{
