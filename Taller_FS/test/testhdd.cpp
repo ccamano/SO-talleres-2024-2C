@@ -162,20 +162,20 @@ int main(int argc, char ** argv)
 	HDD hdd(argv[1]);
 
 	//Esto lo pueden comentar. Es sólo para ver si descomprimieron bien la imagen de disco
-	test_hdd(&hdd);
+	//test_hdd(&hdd);
 
 	Ext2FS * fs = new Ext2FS(hdd, 1);
         
     //Esto lo pueden comentar. Es sólo para ver si el FS está bien
-	test_file_system(fs);
+	//test_file_system(fs);
 
 	//Esto lo pueden comentar. Es sólo para ver si el FS está bien
-	test_block_groups(fs);
+	//test_block_groups(fs);
 
 	
     //Test ejercicios
-    test_load_inode(fs);
-    test_get_block_address(fs);
+    //test_load_inode(fs);
+    //  test_get_block_address(fs);
     test_get_file_inode_from_dir_inode(fs);
     
 	return 0;
