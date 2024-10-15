@@ -249,10 +249,14 @@ struct Ext2FSInode * Ext2FS::inode_for_path(const char * path)
 
 	while(pathtok != NULL)
 	{
+		std::cout <<"pathok = " << pathtok << std::endl;
 		struct Ext2FSInode * prev_inode = inode;
 		// std::cerr << "pathtok: " << pathtok << std::endl;
 		inode = get_file_inode_from_dir_inode(prev_inode, pathtok);
 		pathtok = strtok(NULL, PATH_DELIM);
+
+		
+
 
 		delete prev_inode;
 	}
@@ -391,7 +395,7 @@ void Ext2FS::read_block(unsigned int block_address, unsigned char * buffer)
 		_hdd.read(blockaddr2sector(block_address)+i, buffer+i*SECTOR_SIZE);
 	}
 
-struct Ext2FSInode * Ext2FS::get_file_inode_from_dir_inode(struct Ext2FSInode * from, const char * filename)
+struct Ext2FSInode * Ext2FS::get_file_inode_from_dir_inode(struct Ext2FSInode * from, const char* filename)
 {
 	if(from == NULL)
 		from = load_inode(EXT2_RDIR_INODE_NUMBER);
@@ -415,6 +419,7 @@ struct Ext2FSInode * Ext2FS::get_file_inode_from_dir_inode(struct Ext2FSInode * 
 	
 	std::cout << "Tamaño en bytes del inodo actual = " << from->size << std::endl;
 	std::cout << "Tamaño en bloques del inodo actual = " << size << std::endl;
+	//std::cout << "Imprimo el inodo actual\n" << *from << std::endl;
 
 	Ext2FSDirEntry* block_buffer = (Ext2FSDirEntry*)malloc(sizeof(Ext2FSDirEntry*));
 	bool skip_increment = false; //indica, para cada vez que nos pasamos del bloque, si necesitamos actualizar los indices de a uno o se dio un caso especial por un directorio entre dos o mas bloques
@@ -429,20 +434,25 @@ struct Ext2FSInode * Ext2FS::get_file_inode_from_dir_inode(struct Ext2FSInode * 
 		skip_increment = false;
 		
 
-		while(cur_block_byte < block_size && !foundFile){
+		while(cur_block_byte < block_size && !foundFile && (block_buffer+cur_block_byte)->inode != 0){
 			
             
 			
 			Ext2FSDirEntry* cur_dir_addr = block_buffer + cur_block_byte;
+			std::cout << "cur_dir_addr= " << cur_dir_addr << std::endl;
 			unsigned short cur_length;
 			std::string cur_name;
 			unsigned int name_length;
 			unsigned int cur_filetype;
 			unsigned int inode_num;
 
+			std::cout << "cur_length = " << cur_dir_addr->record_length << ", cur_block_byte= " << cur_block_byte << ", cur_block_index= " << cur_block_index << std::endl;
+
 			//Aprovecho que los structs dirEntry son __packed__
 			if(cur_block_byte + sizeof(unsigned int) + sizeof(short) + 3 >= block_size){
-				skip_increment = true;
+				
+				
+				skip_increment = true; //el siguiente cur_block_byte no necesariamente es cur_block_byte + cur_length
 				//el dir entry actual ocupa al menos dos bloques
 				
 				
@@ -464,7 +474,7 @@ struct Ext2FSInode * Ext2FS::get_file_inode_from_dir_inode(struct Ext2FSInode * 
 					
 					//TODO: conseguir el numero de inodo entre los 2 bloques
 
-					unsigned short length = *((unsigned short*)next_block_buffer+inode_size_2);
+					cur_length = *((unsigned short*)next_block_buffer+inode_size_2);
 					name_length = *((unsigned int*)(next_block_buffer+inode_size_2 + sizeof(unsigned short)));
 					name_start = (char*)(next_block_buffer+inode_size_2 + sizeof(unsigned short) + 2);
 					cur_filetype = *((unsigned int*)(next_block_buffer+inode_size_2 + sizeof(unsigned short) + 1));
@@ -473,7 +483,7 @@ struct Ext2FSInode * Ext2FS::get_file_inode_from_dir_inode(struct Ext2FSInode * 
 				else if(cur_block_byte+sizeof(unsigned int) == block_size-1){
 					//El bloque termina con el numero de inodo
 					inode_num = cur_dir_addr->inode; 
-					unsigned short length = *((unsigned short*)next_block_buffer);
+					cur_length = *((unsigned short*)next_block_buffer);
 					name_length = *((unsigned int*)(next_block_buffer+sizeof(unsigned short)));
 					cur_filetype = *((unsigned int*)(next_block_buffer+sizeof(unsigned short)+1));
 					name_start = (char*)(next_block_buffer + sizeof(unsigned short) + 2);
@@ -484,7 +494,8 @@ struct Ext2FSInode * Ext2FS::get_file_inode_from_dir_inode(struct Ext2FSInode * 
 					inode_num = cur_dir_addr->inode; 
 					unsigned int length_size_1 = 1;
 					unsigned int length_size_2 = 1;
-
+                   
+				    //TODO, completar length en este caso
 					
 					name_length = *((unsigned int*)(next_block_buffer+length_size_2));
 					cur_filetype = *((unsigned int*)(next_block_buffer+length_size_2+1));
@@ -494,7 +505,7 @@ struct Ext2FSInode * Ext2FS::get_file_inode_from_dir_inode(struct Ext2FSInode * 
 				else if(cur_block_byte+sizeof(unsigned int)+sizeof(short) == block_size-1){
 					//El bloque termina con el record length
 					inode_num = cur_dir_addr->inode; 
-					unsigned short length = cur_dir_addr->record_length; 
+					cur_length = cur_dir_addr->record_length; 
 					name_length = *((unsigned int*)(next_block_buffer));
 					cur_filetype = *((unsigned int*)(next_block_buffer+1));
 					name_start = (char*)(next_block_buffer + 2);
@@ -503,7 +514,7 @@ struct Ext2FSInode * Ext2FS::get_file_inode_from_dir_inode(struct Ext2FSInode * 
 				else if(cur_block_byte+sizeof(unsigned int) + sizeof(short) + 1 == block_size-1){
 					//El bloque termina con el name_length (como sizeof(char) es 1, no puede estar repartido entre bloques)
 					inode_num = cur_dir_addr->inode; 
-					unsigned short length = cur_dir_addr->record_length;
+					cur_length = cur_dir_addr->record_length;
 					name_length = cur_dir_addr->name_length;
 					cur_filetype = *((unsigned int*)(next_block_buffer));
 					name_start = (char*)(next_block_buffer + 1);
@@ -512,7 +523,7 @@ struct Ext2FSInode * Ext2FS::get_file_inode_from_dir_inode(struct Ext2FSInode * 
 				else if(cur_block_byte+sizeof(unsigned int) + sizeof(short) + 2 == block_size-1){
 					//El bloque termina con el file_type (como sizeof(char) es 1, no puede estar repartido entre bloques)
 					inode_num = cur_dir_addr->inode; 
-					unsigned short length = cur_dir_addr->record_length;
+					cur_length = cur_dir_addr->record_length;
 					name_length = cur_dir_addr->name_length;
 					cur_filetype = cur_dir_addr->file_type;
 					name_start = (char*)(next_block_buffer);
@@ -521,7 +532,7 @@ struct Ext2FSInode * Ext2FS::get_file_inode_from_dir_inode(struct Ext2FSInode * 
 				else{
 					//solo el nombre queda partido entre 2 archivos
 					inode_num = cur_dir_addr->inode; 
-					unsigned short length = cur_dir_addr->record_length;
+					cur_length = cur_dir_addr->record_length;
 					name_length = cur_dir_addr->name_length;
 					cur_filetype = cur_dir_addr->file_type;
 					name_start = (char*)(block_buffer+sizeof(unsigned int) + sizeof(short) + 2);
@@ -538,7 +549,7 @@ struct Ext2FSInode * Ext2FS::get_file_inode_from_dir_inode(struct Ext2FSInode * 
 
 
 				unsigned int unprocessed_name_length = name_length-name_first_block.size();
-				if(name_start_byte+unprocessed_name_length < block_size){
+				if(name_start_byte+unprocessed_name_length <= block_size){
 					//Caso lindo: el resto del nombre se encuentra en un solo bloque
 					std::string rest_of_name = "";
 					for(int i = 0; i < unprocessed_name_length; i++){
@@ -555,7 +566,7 @@ struct Ext2FSInode * Ext2FS::get_file_inode_from_dir_inode(struct Ext2FSInode * 
 					if(cur_block_index < size-1){
 	  					next_block_addr = get_block_address(from,cur_block_index+1);
 	   				}
-					cur_block_byte = block_size + name_start_byte+unprocessed_name_length;
+					cur_block_byte = name_start_byte+unprocessed_name_length;
 					free(next_block_buffer);
 				}
 				else{
@@ -600,7 +611,7 @@ struct Ext2FSInode * Ext2FS::get_file_inode_from_dir_inode(struct Ext2FSInode * 
 					if(cur_block_index < size-1){
 	  					next_block_addr = get_block_address(from,cur_block_index+1);
 	   				}
-					cur_block_byte = block_size + last_block_remainder;
+					cur_block_byte = last_block_remainder;
 					free(next_block_buffer);
 
 
@@ -611,49 +622,39 @@ struct Ext2FSInode * Ext2FS::get_file_inode_from_dir_inode(struct Ext2FSInode * 
 			}
 			else{
 				//Caso lindo: todo el struct esta en el mismo bloque
-				std::cout << "cur_block_byte = " << cur_block_byte << ", cur_block_index = " << cur_block_index << std::endl;
+				
 				cur_length = cur_dir_addr->record_length;
 				cur_filetype = cur_dir_addr->file_type;
 				name_length = cur_dir_addr->name_length;
 				cur_name = cur_dir_addr->name;
 				inode_num = cur_dir_addr->inode;
-				std::cout << *cur_dir_addr << std::endl;
 				
+				cur_block_byte += cur_length; 
 				
 				
 			}
 			cur_name = cur_name.substr(0,name_length);
-			std::cout << inode_num << ", " << cur_length << ", " << cur_filetype << ", " << cur_name << std::endl;
+			
+			std::cout << *cur_dir_addr << std::endl;
+			std::cout << "Es mismo directorio? " << (cur_filetype == 2 && cur_name == std::string(".")) << std::endl;
+			std::cout << "Es directorio padre? " << (cur_filetype == 2 && cur_name == std::string("..")) << std::endl;
 			sleep(1);
+			
 			if(cur_name == std::string(filename)){
-					foundFile = true;
-					res = load_inode(cur_dir_addr->inode);
-				}
-			else if(cur_filetype == 2 && cur_name != std::string(".") && cur_name != std::string("..")){ //Encontramos un directorio: vamos un nivel mas abajo con un llamado recursivo.
-				Ext2FSInode* rec_inode = load_inode(inode_num);
-				Ext2FSInode* rec_res = get_file_inode_from_dir_inode(rec_inode, filename);
-				if(rec_res != nullptr){
-					foundFile = true;
-					res = rec_res;
-				}
-				else{
-				 cur_block_byte+= cur_length;
-				}
+				foundFile = true;
+				res = load_inode(inode_num);
 			}
-			else{
-            	cur_block_byte+= cur_length;
-			}
-
 			
-
-			
+				 
+				
 		}
+			
+		
 
 
 
 
         if(!skip_increment){
-
     		cur_block_addr = next_block_addr;
 			cur_block_index++;  
 			if(cur_block_index < size-1){
@@ -663,6 +664,7 @@ struct Ext2FSInode * Ext2FS::get_file_inode_from_dir_inode(struct Ext2FSInode * 
 		
 
 	}
+	free(block_buffer);
 	if(foundFile){
 		return res;
 	}
