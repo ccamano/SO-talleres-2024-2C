@@ -125,19 +125,7 @@ LT_BEGIN_TEST(TestsEjercicio2, ValorEsCorrectoTrasVariasInsercionesDistintoBucke
     LT_CHECK_EQ(hM.valor("Heladera"), 2);
     LT_CHECK_EQ(hM.valor("Microondas"), 1);
 LT_END_TEST(ValorEsCorrectoTrasVariasInsercionesDistintoBucket)
-/* 
-LT_BEGIN_TEST(TestsEjercicio2, ValorEnMedioDeIncrementarEsCorrecto)
 
-    vector<thread> threads;
-   // threads.emplace_back(hM->incrementar, "Heladera");
-   // threads.emplace_back(HashMapConcurrente::incrementar, ref(hM), "Heladera");
-    
-    for (auto &t: threads) {
-        t.join();
-    }
-    LT_CHECK_EQ(hM.valor("Heladera"), 4);
-
-LT_END_TEST(ValorEnMedioDeIncrementarEsCorrecto) */
 
 LT_BEGIN_TEST(TestsEjercicio2, ClavesEsCorrectoTrasVariasInsercionesDistintoBucket)
     hM.incrementar("Heladera");
@@ -239,6 +227,127 @@ LT_BEGIN_TEST(TestsEjercicio4, CargarMultiplesArchivosFuncionaVariosThreads)
         LT_CHECK_EQ(hM.claves().size(), 12);
     }
 LT_END_TEST(CargarMultiplesArchivosFuncionaVariosThreads)
+
+
+
+LT_BEGIN_SUITE(TestsConcurrencia)
+
+HashMapConcurrente hM;
+ListaAtomica<int> l;
+
+void set_up()
+{
+}
+
+void tear_down()
+{
+}
+LT_END_SUITE(TestsConcurrencia)
+
+LT_BEGIN_TEST(TestsConcurrencia, IncrementarConcurrenteClave)
+
+   HashMapConcurrente hM;
+    std::vector<std::thread> threads;
+    uint numThreads = 100;
+
+    for (uint i = 0; i < numThreads; i++) {
+        threads.emplace_back([] (HashMapConcurrente &hM) {
+            hM.incrementar("test");
+        }, std::ref(hM));
+    }
+    for (uint i = 0; i < numThreads; i++) {
+        threads[i].join();
+    }
+    LT_CHECK_EQ(hM.valor("test"), numThreads);
+    LT_CHECK_EQ(hM.claves().size(), 1);
+
+LT_END_TEST(IncrementarConcurrenteClave) 
+
+
+LT_BEGIN_TEST(TestsConcurrencia, Ejercicio3IncrementarYPromedioConcurrentemente)
+
+   HashMapConcurrente hM;
+    std::vector<std::thread> threads;
+    uint numThreadsA = 20;
+    uint numThreadsB = 20;
+    uint numThreadsC = 20;
+
+    float promedioInicial = hM.promedio();
+
+    for (uint i = 0; i < numThreadsA; i++) {
+        threads.emplace_back([] (HashMapConcurrente &hM) {
+            hM.incrementar("a");
+        }, std::ref(hM));
+    }
+
+    for (uint i = 0; i < numThreadsB; i++) {
+        threads.emplace_back([] (HashMapConcurrente &hM) {
+            hM.incrementar("b");
+        }, std::ref(hM));
+    }
+
+    for (uint i = 0; i < numThreadsC; i++) {
+        threads.emplace_back([] (HashMapConcurrente &hM) {
+            hM.incrementar("c");
+        }, std::ref(hM));
+    }
+
+
+    for (uint i = 0; i < numThreadsA + numThreadsB + numThreadsC; i++) {
+        threads[i].join();
+    }
+
+    float promedioFinal = hM.promedio();
+
+    LT_CHECK_EQ(promedioInicial, 0);
+    LT_CHECK_EQ(promedioFinal, 20);
+    LT_CHECK_EQ(hM.claves().size(), 3);
+
+LT_END_TEST(Ejercicio3IncrementarYPromedioConcurrentemente) 
+
+
+
+LT_BEGIN_TEST(TestsConcurrencia, Ejercicio3IncrementarYPromedioParalelo)
+
+    HashMapConcurrente hM;
+    std::vector<std::thread> threads;
+    uint numThreadsA = 20;
+    uint numThreadsB = 20;
+    uint numThreadsC = 20;
+
+    uint threadsPromedio = 50;
+
+    float promedioInicial = hM.promedioParalelo(threadsPromedio);
+
+    for (uint i = 0; i < numThreadsA; i++) {
+        threads.emplace_back([] (HashMapConcurrente &hM) {
+            hM.incrementar("a");
+        }, std::ref(hM));
+    }
+
+    for (uint i = 0; i < numThreadsB; i++) {
+        threads.emplace_back([] (HashMapConcurrente &hM) {
+            hM.incrementar("b");
+        }, std::ref(hM));
+    }
+
+    for (uint i = 0; i < numThreadsC; i++) {
+        threads.emplace_back([] (HashMapConcurrente &hM) {
+            hM.incrementar("c");
+        }, std::ref(hM));
+    }
+
+    for (uint i = 0; i < numThreadsA + numThreadsB + numThreadsC; i++) {
+        threads[i].join();
+    }
+
+    float promedioFinal = hM.promedioParalelo(threadsPromedio);
+
+    LT_CHECK_EQ(promedioInicial, 0);
+    LT_CHECK_EQ(promedioFinal, 20);
+    LT_CHECK_EQ(hM.claves().size(), 3);
+
+LT_END_TEST(Ejercicio3IncrementarYPromedioParalelo) 
 
 // Ejecutar tests
 LT_BEGIN_AUTO_TEST_ENV()

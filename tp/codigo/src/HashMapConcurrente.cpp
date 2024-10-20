@@ -191,17 +191,20 @@ float HashMapConcurrente::promedioParalelo(unsigned int cantThreads) {
     unsigned int start = 0;
     mutex start_mutex;
     unsigned int realThreads = 0;
+
     for(unsigned int i = 0; i < cantThreads; i++){
         start_mutex.lock();
+
         if(start < HashMapConcurrente::cantLetras){
             start_mutex.unlock();
             
             realThreads++;
-            // TODO: ver como arreglar
-           // thread_v.emplace_back(promedioParaleloDesde,ref(start), ref(start_mutex), ref(resultado), ref(resultado_mutex));
+
+            thread_v.emplace_back(&HashMapConcurrente::promedioParaleloDesde, this ,std::ref(start), std::ref(start_mutex), std::ref(resultado), std::ref(resultado_mutex));
             
             start_mutex.lock();
         }
+
         start_mutex.unlock();
     }
 
@@ -209,14 +212,11 @@ float HashMapConcurrente::promedioParalelo(unsigned int cantThreads) {
         thread_v[i].join();
     }
 
-    // promedio
     if (resultado.second > 0) {
         return resultado.first / resultado.second;
     }
 
     return 0.0;
 }
-
-
 
 #endif

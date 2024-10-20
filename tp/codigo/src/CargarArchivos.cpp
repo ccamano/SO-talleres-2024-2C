@@ -36,38 +36,58 @@ int cargarArchivo(
     return cant;
 }
 
-void cargarArchivosDesde(unsigned int start, std::mutex &visited_mutex,std::vector<bool> &visited,
-std::vector<std::string> &filePaths,HashMapConcurrente &hashMap){
-    while(start < visited.size()){
-        visited_mutex.lock();
-            if(!visited[start]){
-                visited[start] = true;
-                visited_mutex.unlock();
-                cargarArchivo(hashMap,filePaths[start]);
-            }
-            else{
-                visited_mutex.unlock();
-            }
+void cargarArchivosDesde(unsigned int &start, 
+                         std::mutex &start_mutex,
+                         std::vector<std::string> &filePaths,
+                         HashMapConcurrente &hashMap){
+    
+    
+    unsigned int cur_dir_num = 0;
+    start_mutex.lock();
+    while(start < filePaths.size()){
+
+        cur_dir_num = start;
         start++;
+        start_mutex.unlock();
+
+        cargarArchivo(hashMap,filePaths[cur_dir_num]);
+
+        start_mutex.lock(); 
     }
+    
+    start_mutex.unlock();
+  
 }
 
-void cargarMultiplesArchivos(
-    HashMapConcurrente &hashMap,
-    unsigned int cantThreads,
-    std::vector<std::string> filePaths
-) {
+void cargarMultiplesArchivos( HashMapConcurrente &hashMap,unsigned int cantThreads,
+    std::vector<std::string> filePaths) {
+        
+    vector<thread> thread_v;
+    unsigned int start = 0;
+    mutex start_mutex;
+    unsigned int realThreads = 0;
 
-    std::mutex visited_mutex;
-    std::vector<bool> visited = std::vector<bool>(filePaths.size(),false);
-    std::vector<std::thread> thread_v;
     for(unsigned int i = 0; i < cantThreads; i++){
-        thread_v.emplace_back(cargarArchivosDesde,i,std::ref(visited_mutex),std::ref(visited),std::ref(filePaths),std::ref(hashMap));
+        start_mutex.lock();
+        if(start < filePaths.size()){
+            start_mutex.unlock();
+            
+            realThreads++;
+
+            thread_v.emplace_back(cargarArchivosDesde,std::ref(start),    
+                                                      std::ref(start_mutex), 
+                                                      std::ref(filePaths), 
+                                                      std::ref(hashMap));
+            
+            start_mutex.lock();
+        }
+        start_mutex.unlock();
     }
 
-    for(unsigned int i=0; i < cantThreads; i++){
+    for(unsigned int i=0; i < realThreads; i++){
         thread_v[i].join();
     }
+
 }
 
 #endif
