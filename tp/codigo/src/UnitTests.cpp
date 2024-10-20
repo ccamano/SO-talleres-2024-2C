@@ -1,7 +1,8 @@
 #include <vector>
 #include <thread>
+#include <fstream>
 #include "lib/littletest.hpp"
-
+#include <fstream>
 #include "../src/ListaAtomica.hpp"
 #include "../src/HashMapConcurrente.hpp"
 #include "../src/CargarArchivos.hpp"
@@ -244,9 +245,9 @@ void tear_down()
 }
 LT_END_SUITE(TestsConcurrencia)
 
-LT_BEGIN_TEST(TestsConcurrencia, IncrementarConcurrenteClave)
+LT_BEGIN_TEST(TestsConcurrencia, Ejercicio2IncrementarConcurrenteClave)
 
-   HashMapConcurrente hM;
+    HashMapConcurrente hM;
     std::vector<std::thread> threads;
     uint numThreads = 100;
 
@@ -261,7 +262,7 @@ LT_BEGIN_TEST(TestsConcurrencia, IncrementarConcurrenteClave)
     LT_CHECK_EQ(hM.valor("test"), numThreads);
     LT_CHECK_EQ(hM.claves().size(), 1);
 
-LT_END_TEST(IncrementarConcurrenteClave) 
+LT_END_TEST(Ejercicio2IncrementarConcurrenteClave) 
 
 
 LT_BEGIN_TEST(TestsConcurrencia, Ejercicio3IncrementarYPromedioConcurrentemente)
@@ -348,6 +349,119 @@ LT_BEGIN_TEST(TestsConcurrencia, Ejercicio3IncrementarYPromedioParalelo)
     LT_CHECK_EQ(hM.claves().size(), 3);
 
 LT_END_TEST(Ejercicio3IncrementarYPromedioParalelo) 
+
+
+LT_BEGIN_TEST(TestsConcurrencia, Ejercicio3IncrementarYPromedioParaleloMuchos)
+
+    HashMapConcurrente hM;
+    std::vector<std::thread> threads;
+    uint numThreadsA = 100;
+    uint numThreadsB = 150;
+    uint numThreadsC = 200;
+
+    uint threadsPromedio = 200;
+
+    float promedioInicial = hM.promedioParalelo(threadsPromedio);
+
+    for (uint i = 0; i < numThreadsA; i++) {
+        threads.emplace_back([] (HashMapConcurrente &hM) {
+            hM.incrementar("a");
+        }, std::ref(hM));
+    }
+
+    for (uint i = 0; i < numThreadsB; i++) {
+        threads.emplace_back([] (HashMapConcurrente &hM) {
+            hM.incrementar("b");
+        }, std::ref(hM));
+    }
+
+    for (uint i = 0; i < numThreadsC; i++) {
+        threads.emplace_back([] (HashMapConcurrente &hM) {
+            hM.incrementar("c");
+        }, std::ref(hM));
+    }
+
+    for (uint i = 0; i < numThreadsA + numThreadsB + numThreadsC; i++) {
+        threads[i].join();
+    }
+
+    float promedioFinal = hM.promedioParalelo(threadsPromedio);
+
+    LT_CHECK_EQ(promedioInicial, 0);
+    LT_CHECK_EQ(promedioFinal, 150);
+    LT_CHECK_EQ(hM.claves().size(), 3);
+
+LT_END_TEST(Ejercicio3IncrementarYPromedioParaleloMuchos) 
+
+LT_BEGIN_TEST(TestsConcurrencia, IncrementarConCorpus)
+    std::fstream file;
+    std::vector<std::thread> threads;
+    HashMapConcurrente hM1;
+
+    unsigned int cantThreads = 47;
+    // cierta cantidad muere 
+    std::string palabraActual;
+    unsigned int cant = 0;
+    std::vector<std::string> palabras = {};
+    // Abro el archivo.
+    file.open("data/corpus", file.in);
+    if (!file.is_open()) {
+        std::cerr << "Error al abrir el archivo '" << "data/corpus" << "'" << std::endl;
+    }
+
+    while (file >> palabraActual && cant < cantThreads) {
+        palabras.push_back(palabraActual);
+        cant++;
+    }
+    
+    // Cierro el archivo.
+    if (!file.eof() &&  (cant != cantThreads)) {
+        std::cerr << "Error al leer el archivo" << std::endl;
+        file.close();
+    }
+    file.close();
+    
+    
+    for(int i = 0; i < cantThreads; i++){
+        threads.emplace_back([palabras, i] (HashMapConcurrente &hM1){
+            hM1.incrementar(palabras[i]);
+        }, std::ref(hM1));
+    }
+
+    for(int i = 0; i < cantThreads; i++){
+        threads[i].join();
+    }
+   
+    std::sort(palabras.begin(),palabras.end());
+    std::vector<std::pair<std::string,int>> claves = {};
+    int cur_amount = 1;
+
+
+    for(int i = 1; i < palabras.size(); i++){
+        if(palabras[i] == palabras[i-1]){
+            cur_amount++;
+        }
+        else{
+            std::pair<std::string,int>clave = std::make_pair(palabras[i-1], cur_amount);
+            claves.push_back(clave);
+            cur_amount = 1;
+
+            std::cout<< clave.first << " " << clave.second << std::endl;        
+        }
+    }
+
+    std::pair<std::string,int>clave = std::make_pair(palabras[palabras.size()-1], cur_amount);
+    claves.push_back(clave);
+
+
+    LT_CHECK_EQ(claves.size(), hM1.claves().size());
+
+
+    for(auto &clave:claves){
+        LT_CHECK_EQ(clave.second,hM1.valor(clave.first));
+    }
+
+LT_END_TEST(IncrementarConCorpus)
 
 // Ejecutar tests
 LT_BEGIN_AUTO_TEST_ENV()
