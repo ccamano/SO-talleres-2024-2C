@@ -4,7 +4,6 @@
 #include "mbr.h"
 #include <cassert>
 #include <cstring>
-#include <string>
 #include <iostream>
 #include <cstdlib>
 
@@ -274,7 +273,6 @@ unsigned int Ext2FS::blockaddr2sector(unsigned int block)
 	return pentry.start_lba() + block * sectors_per_block;
 }
 
-
 /**
  * Warning: This method allocates memory that must be freed by the caller
  */
@@ -305,7 +303,7 @@ unsigned int Ext2FS::get_block_address(struct Ext2FSInode * inode, unsigned int 
 {
 
 	//TODO: Ejercicio 2
-	unsigned int block_size = 1024;
+    unsigned int block_size = 1024;
 	unsigned int last_direct = 12;
 	
 	if (block_number < last_direct) {
@@ -382,7 +380,6 @@ unsigned int Ext2FS::get_block_address(struct Ext2FSInode * inode, unsigned int 
 
 	//block_number es demasiado alto como para estar dentro de un inodo
 	std::cout << "El número de bloque es demasiado grande para entrar en un inodo\n" << std::endl;
-
 }
 
 void Ext2FS::read_block(unsigned int block_address, unsigned char * buffer)
@@ -393,12 +390,13 @@ void Ext2FS::read_block(unsigned int block_address, unsigned char * buffer)
 		_hdd.read(blockaddr2sector(block_address)+i, buffer+i*SECTOR_SIZE);
 	}
 
-struct Ext2FSInode * Ext2FS::get_file_inode_from_dir_inode(struct Ext2FSInode * from, const char* filename)
+struct Ext2FSInode * Ext2FS::get_file_inode_from_dir_inode(struct Ext2FSInode * from, const char * filename)
 {
-	if(from == NULL) from = load_inode(EXT2_RDIR_INODE_NUMBER);
+	if(from == NULL)
+		from = load_inode(EXT2_RDIR_INODE_NUMBER);
 	//std::cerr << *from << std::endl;
 	assert(INODE_ISDIR(from));
-    	
+
 	//TODO: Ejercicio 3
 	unsigned int block_size = 1024;
         unsigned int cur_block_index = 0;
@@ -419,14 +417,14 @@ struct Ext2FSInode * Ext2FS::get_file_inode_from_dir_inode(struct Ext2FSInode * 
 	        block_buffer = (unsigned char*) malloc(block_size);
 	        read_block(cur_block_addr,(unsigned char*)block_buffer);
 	    }
-	    while (cur_block_byte < block_size && ((Ext2FSDirEntry*)(block_buffer + cur_block_byte))->inode != 0) {
+	    while (cur_block_byte < block_size) {
 	        Ext2FSDirEntry* cur_dir_entry_addr = (Ext2FSDirEntry*)(block_buffer + cur_block_byte);
-	          std::cout << cur_dir_entry_addr->name << std::endl;
-	          std::cout << filename << std::endl;
+	         // std::cout << cur_dir_entry_addr->name << std::endl;
+	         // std::cout << filename << std::endl;
 	          if (strncmp(cur_dir_entry_addr->name,filename,cur_dir_entry_addr->name_length) == 0
 	              && cur_dir_entry_addr->name_length == strlen(filename)) {
-	              std::cout << cur_dir_entry_addr->inode << std::endl;
-	              std::cout << "devuelvo inodo" << std::endl;
+	              //std::cout << cur_dir_entry_addr->inode << std::endl;
+	              //std::cout << "devuelvo inodo" << std::endl;
 	              Ext2FSInode * res = load_inode(cur_dir_entry_addr->inode);
 	              free(block_buffer);
 	              return res;
